@@ -752,14 +752,20 @@ async def run_shell_command(
             # Wrap command with sandboxing if enabled
             wrapped_command = command
             sandbox_env = None
+            was_excluded = False
             sandbox = _get_sandbox_wrapper()
 
             if sandbox and sandbox.config.enabled:
                 try:
-                    wrapped_command, sandbox_env = sandbox.wrap_command(
+                    wrapped_command, sandbox_env, was_excluded = sandbox.wrap_command(
                         command, cwd=cwd, env=os.environ.copy()
                     )
-                    if wrapped_command != command:
+                    if was_excluded:
+                        emit_info(
+                            "[dim cyan]ℹ️  Command excluded from sandbox (in exclusion list)[/dim cyan]",
+                            message_group=group_id,
+                        )
+                    elif wrapped_command != command:
                         emit_info(
                             "[dim yellow]🔒 Running command in sandbox[/dim yellow]",
                             message_group=group_id,

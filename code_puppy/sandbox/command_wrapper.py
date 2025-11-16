@@ -55,12 +55,37 @@ class SandboxCommandWrapper:
         isolator = self._get_isolator()
         return isolator.is_available() and isolator.get_platform() != "noop"
 
+    def is_command_excluded(self, command: str) -> bool:
+        """
+        Check if a command should be excluded from sandboxing.
+
+        Args:
+            command: The shell command to check
+
+        Returns:
+            True if command matches exclusion list
+        """
+        # Extract the first word (actual command) from the shell command
+        cmd_parts = command.strip().split()
+        if not cmd_parts:
+            return False
+
+        base_command = cmd_parts[0]
+
+        # Check against excluded commands
+        for excluded in self.config.excluded_commands:
+            if base_command == excluded or base_command.endswith(f"/{excluded}"):
+                logger.info(f"Command '{base_command}' is excluded from sandboxing")
+                return True
+
+        return False
+
     def wrap_command(
         self,
         command: str,
         cwd: Optional[str] = None,
         env: Optional[dict[str, str]] = None,
-    ) -> tuple[str, dict[str, str]]:
+    ) -> tuple[str, dict[str, str], bool]:
         """
         Wrap a command with sandboxing if enabled.
 
@@ -70,11 +95,15 @@ class SandboxCommandWrapper:
             env: Environment variables for the command
 
         Returns:
-            Tuple of (wrapped_command, environment_dict)
+            Tuple of (wrapped_command, environment_dict, was_excluded)
         """
         # If sandboxing is disabled, return command unchanged
         if not self.config.enabled:
-            return command, env or {}
+            return command, env or {}, False
+
+        # Check if command is excluded
+        if self.is_command_excluded(command):
+            return command, env or {}, True
 
         # Get working directory
         if cwd is None:
@@ -86,8 +115,13 @@ class SandboxCommandWrapper:
             network_isolation=self.config.network_isolation,
             allowed_read_paths=self.config.allowed_read_paths,
             allowed_write_paths=self.config.allowed_write_paths,
+            denied_read_paths=self.config.denied_read_paths,
+            read_scope=self.config.read_scope,
             cwd=cwd,
             env=env,
+            max_memory_mb=self.config.max_memory_mb,
+            max_cpu_percent=self.config.max_cpu_percent,
+            max_execution_time=self.config.max_execution_time,
         )
 
         # Set proxy socket path if network isolation is enabled
@@ -102,7 +136,7 @@ class SandboxCommandWrapper:
                 try:
                     wrapped_cmd, wrapped_env = isolator.wrap_command(command, options)
                     logger.debug(f"Wrapped command with {isolator.__class__.__name__}")
-                    return wrapped_cmd, wrapped_env
+                    return wrapped_cmd, wrapped_env, False
                 except Exception as e:
                     logger.error(f"Failed to wrap command with sandboxing: {e}")
                     logger.warning("Falling back to unsandboxed execution")
@@ -112,7 +146,7 @@ class SandboxCommandWrapper:
                     f"({isolator.__class__.__name__}), running unsandboxed"
                 )
 
-        return command, env or {}
+        return command, env or {}, False
 
     async def start_network_proxy(self, approval_callback=None):
         """

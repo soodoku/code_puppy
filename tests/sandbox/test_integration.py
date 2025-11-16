@@ -62,8 +62,9 @@ class TestSandboxIntegration(unittest.TestCase):
 
         # Commands should pass through unchanged
         command = "echo hello"
-        wrapped, env = wrapper.wrap_command(command)
+        wrapped, env, was_excluded = wrapper.wrap_command(command)
         self.assertEqual(command, wrapped)
+        self.assertFalse(was_excluded)
 
     def test_command_wrapper_when_enabled(self):
         """Test command wrapping when sandboxing is enabled."""
@@ -76,7 +77,7 @@ class TestSandboxIntegration(unittest.TestCase):
         cwd = "/tmp"
 
         # The wrapped command should be different if isolation is available
-        wrapped, env = wrapper.wrap_command(command, cwd=cwd)
+        wrapped, env, was_excluded = wrapper.wrap_command(command, cwd=cwd)
 
         # Check if we have a real isolator available
         isolator = wrapper._get_isolator()
@@ -147,7 +148,7 @@ class TestSandboxIntegration(unittest.TestCase):
         command = "echo $TEST_VAR"
         custom_env = {"TEST_VAR": "test_value"}
 
-        wrapped, env = wrapper.wrap_command(command, env=custom_env)
+        wrapped, env, was_excluded = wrapper.wrap_command(command, env=custom_env)
 
         # Environment should be passed through or modified
         # depending on isolator availability

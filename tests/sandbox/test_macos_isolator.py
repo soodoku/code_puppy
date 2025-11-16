@@ -41,7 +41,7 @@ class TestSandboxExecIsolator(unittest.TestCase):
 
         # Check that profile contains essential directives
         self.assertIn("(version 1)", profile)
-        self.assertIn("(deny default)", profile)
+        # With broad read scope (default), we don't deny by default
         self.assertIn("(allow process-exec*)", profile)
         self.assertIn("(allow network*)", profile)
 
@@ -54,6 +54,7 @@ class TestSandboxExecIsolator(unittest.TestCase):
             cwd="/tmp/test",
             allowed_read_paths=["/opt/data"],
             allowed_write_paths=["/tmp/output"],
+            read_scope="restricted",  # Use restricted mode to test specific paths
         )
 
         profile = self.isolator._generate_sandbox_profile(options)

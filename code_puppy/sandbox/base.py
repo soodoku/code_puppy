@@ -16,6 +16,12 @@ class SandboxOptions:
     filesystem_isolation: bool = True
     allowed_read_paths: list[str] = None
     allowed_write_paths: list[str] = None
+    denied_read_paths: list[str] = None
+
+    # Read scope: "broad" (entire system except denied) or "restricted" (only allowed paths)
+    read_scope: str = "broad"  # "broad" or "restricted"
+
+    # Write scope is always restricted to CWD + allowed_write_paths
 
     # Network isolation
     network_isolation: bool = True
@@ -27,12 +33,27 @@ class SandboxOptions:
     # Environment variables
     env: Optional[dict[str, str]] = None
 
+    # Resource limits
+    max_memory_mb: Optional[int] = None  # Maximum memory in MB
+    max_cpu_percent: Optional[int] = None  # Maximum CPU percentage
+    max_execution_time: Optional[int] = None  # Maximum execution time in seconds
+
     def __post_init__(self):
         """Initialize default values."""
         if self.allowed_read_paths is None:
             self.allowed_read_paths = []
         if self.allowed_write_paths is None:
             self.allowed_write_paths = []
+        if self.denied_read_paths is None:
+            # Default denied paths for security
+            self.denied_read_paths = [
+                "~/.ssh",
+                "~/.aws",
+                "~/.gnupg",
+                "~/.config/gcloud",
+                "/etc/passwd",
+                "/etc/shadow",
+            ]
 
 
 class FilesystemIsolator(ABC):
